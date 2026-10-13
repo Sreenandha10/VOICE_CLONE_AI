@@ -1,0 +1,47 @@
+<!-- templates/landing.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Clone AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+</head>
+<body>
+    <div class="landing-container">
+        <div class="background-animation">
+            <div class="wave wave1"></div>
+            <div class="wave wave2"></div>
+            <div class="wave wave3"></div>
+        </div>
+        <div class="content">
+            <div class="hero-section">
+                <h1 class="title">Voice Clone AI</h1>
+                <p class="subtitle">Upload, enhance, and transform your voice recordings with AI-powered technology</p>
+                <div class="features">
+                    <div class="feature-item">
+                        <div class="feature-icon">🎙️</div>
+                        <div>Record & Upload</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">✨</div>
+                        <div>AI Enhancement</div>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">🤖</div>
+                        <div>Voice Chatbot</div>
+                    </div>
+                </div>
+                <a href="/login" class="cta-button">
+                    Sign In
+                    <span>🚀</span>
+                </a>
+                 <a href="/signup" class="cta-button">
+                    Sign Up
+                    <span>🚀</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

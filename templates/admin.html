@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Voice Clone</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body class="bg-gray-100">
+    <nav class="bg-gray-800 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold">Admin Panel</h1>
+            <div>
+                <a href="/" class="hover:text-gray-300 mr-4">Home</a>
+                <a href="/logout" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+                <div class="text-gray-500">Total Users</div>
+                <div class="text-3xl font-bold" id="total-users">-</div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+                <div class="text-gray-500">Voice Clones</div>
+                <div class="text-3xl font-bold" id="total-voices">-</div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
+                <div class="text-gray-500">Total Messages</div>
+                <div class="text-3xl font-bold" id="total-messages">-</div>
+            </div>
+        </div>
+
+        <!-- Charts Section (Engagement) -->
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 class="text-xl font-bold mb-4">Engagement Analytics</h2>
+            <div class="h-64">
+                <canvas id="engagementChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Users Table -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="px-6 py-4 border-b">
+                <h2 class="text-xl font-bold">Registered Users</h2>
+            </div>
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Username</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Joined At</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200" id="users-table-body">
+                    <!-- Rows filled by JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchStats();
+        });
+
+        function fetchStats() {
+            fetch('/admin-dashboard-data')
+                .then(response => {
+                    if (response.status === 403) {
+                        alert("Access Denied");
+                        window.location.href = '/login';
+                        return;
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data) return;
+
+                    // Update Cards
+                    document.getElementById('total-users').textContent = data.stats.users;
+                    document.getElementById('total-voices').textContent = data.stats.voices;
+                    document.getElementById('total-messages').textContent = data.stats.messages;
+
+                    // Update Table
+                    const tbody = document.getElementById('users-table-body');
+                    tbody.innerHTML = '';
+                    data.users.forEach(user => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.id}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${user.username}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.email}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
+                                    ${user.role}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.created_at}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+
+                    // Render Chart (Mock Data based on counts for visual)
+                    renderChart(data.stats);
+                });
+        }
+
+        function renderChart(stats) {
+            const ctx = document.getElementById('engagementChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Users', 'Voice Models', 'Activity'],
+                    datasets: [{
+                        label: 'Platform Metrics',
+                        data: [stats.users, stats.voices, stats.messages],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.5)',
+                            'rgba(16, 185, 129, 0.5)',
+                            'rgba(139, 92, 246, 0.5)'
+                        ],
+                        borderColor: [
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(16, 185, 129, 1)',
+                            'rgba(139, 92, 246, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

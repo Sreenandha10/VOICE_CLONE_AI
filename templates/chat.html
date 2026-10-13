@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Clone Chat</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            background: #0f0f0f;
+            color: #e0e0e0;
+        }
+
+        .message-container {
+            height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        .typing-indicator {
+            display: none;
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 0.5rem;
+        }
+
+        .typing-indicator.active {
+            display: block;
+        }
+
+        .sidebar {
+            height: 100vh;
+            background: #1a1a1a;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .main-chat {
+            background: #0f0f0f;
+        }
+
+        .chat-bubbles-container {
+            background: #0f0f0f;
+        }
+
+        .sidebar-item:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .sidebar-item.active {
+            background: rgba(102, 126, 234, 0.2);
+            border-left: 4px solid #667eea;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f0f0f;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+    </style>
+</head>
+
+<body class="bg-black text-gray-200 h-screen overflow-hidden">
+
+    <!-- Add Friend Modal -->
+    <div id="add-friend-modal"
+        class="fixed inset-0 bg-black bg-opacity-70 hidden flex items-center justify-center z-50 transition-opacity duration-300">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-96 shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-white">Add Friend</h2>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white transition">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="flex space-x-2 mb-4">
+                <input type="text" id="search-user-input"
+                    class="flex-1 bg-gray-800 border-none text-white p-3 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="Search username...">
+                <button onclick="searchUsers()"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl transition font-semibold">
+                    Search
+                </button>
+            </div>
+            <div id="search-results" class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar"></div>
+        </div>
+    </div>
+
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <div class="w-1/4 flex flex-col sidebar">
+            <!-- Header -->
+            <div class="p-6 border-b border-gray-800 bg-gray-900 flex flex-col space-y-4">
+                <div class="flex justify-between items-center">
+                    <a href="/" class="text-gray-400 hover:text-white transition flex items-center space-x-2 text-sm">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <button onclick="openModal()"
+                        class="bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-400 p-2 rounded-lg transition">
+                        <i class="fas fa-user-plus"></i>
+                    </button>
+                </div>
+                <span
+                    class="font-bold text-xl bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Social
+                    Chat</span>
+            </div>
+
+            <!-- Self/AI Agent Node -->
+            <div class="p-4 hover:bg-white/5 cursor-pointer transition-colors border-b border-gray-800/50"
+                onclick="selectChat('agent', 'AI Agent')">
+                <div class="flex items-center space-x-3">
+                    <div
+                        class="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white shadow-lg">
+                        <i class="fas fa-robot text-lg"></i>
+                    </div>
+                    <div>
+                        <div class="font-semibold text-white">AI Agent (Self)</div>
+                        <div class="text-xs text-gray-500">Test your clones</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Friends List -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar" id="friends-list">
+                <!-- Friends loaded via JS -->
+            </div>
+
+            <!-- User Profile / Logout -->
+            <div class="p-4 border-t border-gray-800 bg-gray-900/50">
+                <div class="flex justify-between items-center px-2">
+                    <div class="flex items-center space-x-3">
+                        <div
+                            class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold">
+                            {{ session.user_name[0] if session.user_name else 'U' }}
+                        </div>
+                        <span class="font-medium text-gray-300">{{ session.user_name if session.user_name else 'User'
+                            }}</span>
+                    </div>
+                    <a href="/logout" class="text-gray-500 hover:text-red-400 text-sm transition">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="flex-1 flex flex-col h-screen main-chat">
+            <!-- Chat Header -->
+            <div class="p-4 border-b border-gray-800 bg-gray-900/40 backdrop-blur-md flex justify-between items-center">
+                <div class="flex items-center space-x-4">
+                    <div id="chat-avatar"
+                        class="w-10 h-10 rounded-xl bg-gray-800 hidden items-center justify-center text-indigo-400 font-bold">
+                    </div>
+                    <div>
+                        <h2 id="current-chat-name" class="font-bold text-lg text-white">Select a chat</h2>
+                        <div id="typing-indicator" class="typing-indicator">Typing...</div>
+                    </div>
+                </div>
+
+                <!-- Voice Selector -->
+                <div id="voice-controls"
+                    class="hidden flex items-center space-x-3 bg-gray-800/50 p-1 rounded-xl border border-gray-700">
+                    <span class="text-xs text-gray-400 px-2 font-medium">SPEAK AS</span>
+                    <select id="voice-selector"
+                        class="bg-gray-900 text-gray-200 rounded-lg p-2 text-xs border-none focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer">
+                        <option value="">Natural Voice</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div id="messages" class="flex-1 p-6 space-y-6 overflow-y-auto chat-bubbles-container custom-scrollbar">
+                <div class="flex flex-col items-center justify-center h-full text-gray-600 space-y-4">
+                    <div
+                        class="w-20 h-20 rounded-full bg-gray-900 flex items-center justify-center border border-gray-800">
+                        <i class="fas fa-comments text-3xl opacity-20"></i>
+                    </div>
+                    <p class="text-sm font-medium">Select a friend to start a conversation</p>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="p-6 bg-gray-900/30 border-t border-gray-800">
+                <div class="max-w-4xl mx-auto flex items-end space-x-4">
+                    <div class="flex-1 relative">
+                        <textarea id="message-input" rows="1"
+                            class="w-full bg-gray-800 border-none text-white rounded-2xl p-4 pr-12 focus:ring-2 focus:ring-indigo-500 outline-none resize-none transition-all custom-scrollbar"
+                            placeholder="Type reaching message..." oninput="handleTypingEvent()"></textarea>
+                    </div>
+                    <button onclick="sendMessage()"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/20 transition-all transform active:scale-95">
+                        <i class="fas fa-paper-plane text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentRecipientId = null;
+        let userVoices = [];
+        let typingTimeout = null;
+
+        const myId = parseInt("{{ session.user|default(0) }}");
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFriends();
+            loadMyVoices();
+
+            // Socket Listeners
+            socket.on('receive_message', (data) => {
+                // Ignore messages sent by me (already appended optimistically)
+                if (data.sender_id == myId) return;
+
+                // Append if we are chatting with this person
+                if (currentRecipientId == data.sender_id) {
+                    appendMessage(
+                        data.message,
+                        false,
+                        data.type === 'voice',
+                        data.audio_url
+                    );
+                }
+            });
+
+            socket.on('typing', (data) => {
+                const indicator = document.getElementById('typing-indicator');
+                if (data.sender_id == currentRecipientId) {
+                    if (data.is_typing) {
+                        indicator.classList.add('active');
+                    } else {
+                        indicator.classList.remove('active');
+                    }
+                }
+            });
+        });
+
+        function handleTypingEvent() {
+            if (!currentRecipientId || currentRecipientId === 'agent') return;
+
+            socket.emit('typing', { target_user_id: currentRecipientId, is_typing: true });
+
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                socket.emit('typing', { target_user_id: currentRecipientId, is_typing: false });
+            }, 2000);
+        }
+
+        function loadFriends() {
+            fetch('/get-friends')
+                .then(r => r.json())
+                .then(data => {
+                    const list = document.getElementById('friends-list');
+                    list.innerHTML = '';
+                    if (data.friends) {
+                        data.friends.forEach(friend => {
+                            const div = document.createElement('div');
+                            div.className = 'sidebar-item p-3 hover:bg-white/5 rounded-xl cursor-pointer transition-all flex items-center space-x-3 mb-1';
+                            div.id = `friend-${friend.id}`;
+                            div.onclick = () => selectChat(friend.id, friend.username);
+                            div.innerHTML = `
+                                <div class="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center text-indigo-400 font-bold border border-gray-700">
+                                    ${friend.username[0].toUpperCase()}
+                                </div>
+                                <div class="font-medium text-gray-300 text-sm">${friend.username}</div>
+                            `;
+                            list.appendChild(div);
+                        });
+                    }
+                });
+        }
+
+        function loadMyVoices() {
+            fetch('/get-user-voices')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.voices) {
+                        userVoices = data.voices;
+                        const select = document.getElementById('voice-selector');
+                        select.innerHTML = '<option value="">Natural Voice</option>';
+                        userVoices.forEach(v => {
+                            const opt = document.createElement('option');
+                            opt.value = v.filename;
+                            opt.textContent = `Clone: ${v.emotion}`;
+                            select.appendChild(opt);
+                        });
+                    }
+                });
+        }
+
+        function selectChat(id, name) {
+            currentRecipientId = id;
+            document.getElementById('current-chat-name').innerText = name;
+            document.getElementById('messages').innerHTML = '';
+
+            // UI updates
+            const avatar = document.getElementById('chat-avatar');
+            avatar.classList.remove('hidden');
+            avatar.classList.add('flex');
+            avatar.innerText = name[0].toUpperCase();
+
+            // Set active class in sidebar
+            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+            const activeEl = document.getElementById(`friend-${id}`);
+            if (activeEl) activeEl.classList.add('active');
+
+            const voiceControls = document.getElementById('voice-controls');
+            if (id === 'agent') {
+                voiceControls.classList.add('hidden');
+            } else {
+                voiceControls.classList.remove('hidden');
+                socket.emit('join_chat', { target_user_id: id });
+            }
+
+            if (id !== 'agent') {
+                fetch('/get-chat-history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ friend_id: id })
+                })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.messages) {
+                            data.messages.forEach(msg => {
+                                appendMessage(
+                                    msg.message,
+                                    msg.sender_id == myId,
+                                    msg.type === 'voice',
+                                    msg.audio_url
+                                );
+                            });
+                        }
+                    });
+            } else {
+                appendSystemMessage("This is your AI Agent space. Messages here are for testing and are not stored in the social database.");
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+            input.style.height = 'auto';
+
+            if (currentRecipientId === 'agent') {
+                appendMessage(text, true, false);
+                const voiceVal = document.getElementById('voice-selector').value || (userVoices[0] ? userVoices[0].filename : '');
+
+                fetch('/chatbot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text, voice: voiceVal })
+                })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.audio_url) {
+                            appendMessage("AI Voice Response", false, true, data.audio_url);
+                        } else {
+                            appendMessage(data.message || "No response", false, false);
+                        }
+                    });
+
+            } else {
+                const voiceVal = document.getElementById('voice-selector').value;
+                if (voiceVal) {
+                    appendSystemMessage("Generating voice message...");
+                    fetch('/send-voice-chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            text: text,
+                            friend_id: currentRecipientId,
+                            voice_filename: voiceVal
+                        })
+                    })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.success) {
+                                // Optimistic or socket-based? For social voice, we currently don't have socket voice broadcast
+                                appendMessage(text, true, true, `/uploads/${data.filename}`);
+                            }
+                        });
+                } else {
+                    const messageData = {
+                        message: text,
+                        friend_id: currentRecipientId
+                    };
+                    socket.emit('send_message', messageData);
+                    // Standard text normally comes back via socket, but if we want it instant:
+                    appendMessage(text, true, false);
+                }
+
+                // Stop typing
+                clearTimeout(typingTimeout);
+                socket.emit('typing', { target_user_id: currentRecipientId, is_typing: false });
+            }
+        }
+
+        function appendMessage(content, isMe, isVoice, audioUrl) {
+            const container = document.getElementById('messages');
+            const alignment = isMe ? 'items-end' : 'items-start';
+            const color = isMe ? 'bg-indigo-600 text-white rounded-t-2xl rounded-l-2xl' : 'bg-gray-800 text-gray-100 rounded-t-2xl rounded-r-2xl';
+
+            const div = document.createElement('div');
+            div.className = `flex flex-col ${alignment}`;
+
+            let innerHTML = '';
+            if (isVoice) {
+                innerHTML = `
+                    <div class="${color} p-4 max-w-md shadow-xl border border-white/5">
+                        <div class="flex items-center space-x-3 mb-2 opacity-80">
+                            <i class="fas fa-volume-up text-xs"></i>
+                            <span class="text-[10px] uppercase tracking-wider font-bold">${isMe ? 'Sent Voice Clone' : 'Voice Message'}</span>
+                        </div>
+                        <audio controls src="${audioUrl}" class="w-64 h-8 invert opacity-90"></audio>
+                        <div class="text-xs mt-2 italic text-gray-200/60 leading-relaxed">"${content}"</div>
+                    </div>
+                `;
+            } else {
+                innerHTML = `
+                    <div class="${color} px-4 py-3 max-w-md shadow-lg border border-white/5 leading-relaxed">
+                        ${content}
+                    </div>
+                `;
+            }
+
+            div.innerHTML = innerHTML;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function appendSystemMessage(text) {
+            const container = document.getElementById('messages');
+            const div = document.createElement('div');
+            div.className = "flex justify-center my-4";
+            div.innerHTML = `<span class="bg-gray-900 text-gray-500 text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full border border-gray-800">${text}</span>`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function openModal() {
+            document.getElementById('add-friend-modal').classList.remove('hidden');
+            searchUsers(); // Load all users by default
+        }
+        function closeModal() { document.getElementById('add-friend-modal').classList.add('hidden'); }
+
+        // Live search on input
+        document.getElementById('search-user-input').addEventListener('input', function (e) {
+            searchUsers(e.target.value);
+        });
+
+        function searchUsers(query = '') {
+            fetch('/search-users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: query })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    const resDiv = document.getElementById('search-results');
+                    resDiv.innerHTML = '';
+                    if (data.users) {
+                        data.users.forEach(u => {
+                            const row = document.createElement('div');
+                            row.className = "flex justify-between items-center p-3 bg-gray-800/50 rounded-xl border border-gray-800/50";
+                            let actionBtn = '';
+                            if (u.status === 'accepted') {
+                                actionBtn = `<span class="text-green-400 text-xs font-bold"><i class="fas fa-check mr-1"></i> Friend</span>`;
+                            } else {
+                                actionBtn = `<button onclick="addFriend('${u.id}')" class="bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white px-3 py-1 rounded-lg text-xs transition font-bold">Add</button>`;
+                            }
+
+                            row.innerHTML = `<span class="text-gray-200 text-sm font-medium">${u.username}</span> ${actionBtn}`;
+                            resDiv.appendChild(row);
+                        });
+                    }
+                });
+        }
+
+        function addFriend(id) {
+            fetch('/add-friend', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ friend_id: id })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        searchUsers();
+                        loadFriends();
+                    }
+                });
+        }
+
+        // Auto-expand textarea
+        const messageInput = document.getElementById('message-input');
+        messageInput.addEventListener('input', function () {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            if (this.scrollHeight > 200) {
+                this.style.overflowY = 'auto';
+            } else {
+                this.style.overflowY = 'hidden';
+            }
+        });
+    </script>
+</body>
+
+</html>

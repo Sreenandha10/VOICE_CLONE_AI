@@ -1,0 +1,204 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Clone AI - App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body>
+    <!-- Top Navbar -->
+    <nav class="navbar">
+        <div class="nav-brand">Voice Clone AI</div>
+        <div class="nav-links">
+            <a href="/logout" class="nav-link">Logout</a>
+        </div>
+        <div class="hamburger" onclick="toggleMobileMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div id="mobileMenu" class="mobile-menu">
+        <a href="/logout" class="mobile-link">Logout</a>
+    </div>
+
+    <!-- App Container -->
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">Menu</div>
+            <div class="sidebar-menu">
+                <div class="sidebar-item active" data-section="chatbot">
+                    <span class="sidebar-icon">💬</span>
+                    <span>Chatbot (Self)</span>
+                </div>
+                <a href="/chat" class="sidebar-item" style="text-decoration: none; color: inherit;">
+                    <span class="sidebar-icon">👥</span>
+                    <span>Social Chat</span>
+                </a>
+                <div class="sidebar-item" data-section="upload">
+                    <span class="sidebar-icon">⬆️</span>
+                    <span>Audio Upload</span>
+                </div>
+                <div class="sidebar-item" data-section="summary">
+                    <span class="sidebar-icon">📝</span>
+                    <span>Audio Summary</span>
+                </div>
+                <div class="sidebar-item" data-section="shared">
+                    <span class="sidebar-icon">📨</span>
+                    <span>Shared Messages</span>
+                </div>
+                {% if session.get('user') == 1 or session.get('user') == '1' or session.get('role') == 'admin' %}
+                <a href="/admin" class="sidebar-item" style="text-decoration: none; color: inherit;">
+                    <span class="sidebar-icon">⚙️</span>
+                    <span>Admin Panel</span>
+                </a>
+                {% endif %}
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Chatbot Section -->
+            <section id="chatbot-section" class="content-section active">
+                <h2 class="section-title">AI Voice Chatbot</h2>
+                <div class="chatbot-container">
+                    <div id="chatMessages" class="chat-messages">
+                        <div class="welcome-message">
+                            <p>👋 Welcome! Enter your text and select a voice to get started.</p>
+                        </div>
+                    </div>
+                    <div class="voice-selector">
+                        <label for="voiceSelect">Select Voice:</label>
+                        <select id="voiceSelect" class="voice-select">
+                            <option value="">No voice selected</option>
+                        </select>
+                        <button id="refreshVoices" class="refresh-voices-btn"
+                            title="Refresh voices from database">🔄</button>
+                    </div>
+                    <div class="input-group">
+                        <textarea id="chatInput" class="chat-input" placeholder="Type your message here..."></textarea>
+                        <div>
+                            <button id="recordButton" class="record-button" title="Record Voice">🎤</button>
+                            <button id="sendButton" class="send-button">Send</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Audio Upload Section (Two Columns: Form and Files Grid) -->
+            <section id="upload-section" class="content-section">
+                <h2 class="section-title">Upload Audio Files</h2>
+                <div class="upload-main-container">
+                    <!-- Left Column: Upload Form -->
+                    <div class="upload-form-column">
+                        <div class="upload-container">
+                            <div id="uploadArea" class="upload-area">
+                                <span class="upload-icon">🎵</span>
+                                <p>Drag & drop audio files here</p>
+                                <p>or</p>
+                                <label for="fileInput" class="browse-label">Browse Files</label>
+                                <input type="file" id="fileInput" multiple accept="audio/*" style="display: none;">
+                                <p class="supported-formats">Supported formats: WAV, FLAC, OGG</p>
+                            </div>
+
+                            <!-- Emotion Selector -->
+                            <div class="emotion-selector-container">
+                                <label for="emotionSelect" class="emotion-label">
+                                    <span class="emotion-icon">🎭</span>
+                                    Select Voice Emotion
+                                </label>
+                                <select id="emotionSelect" class="emotion-select">
+                                    <option value="neutral">😐 Neutral</option>
+                                    <option value="happy">😊 Happy</option>
+                                    <option value="sad">😢 Sad</option>
+                                    <option value="angry">😠 Angry</option>
+                                    <option value="excited">🤩 Excited</option>
+                                    <option value="afraid">😨 Afraid</option>
+                                    <option value="disgusted">🤢 Disgusted</option>
+                                    <option value="calm">😌 Calm</option>
+                                    <option value="surprised">😲 Surprised</option>
+                                </select>
+                            </div>
+
+                            <div id="uploadProgress" class="progress-container" style="display: none;">
+                                <div class="waveform">
+                                    <div class="waveform-bar"></div>
+                                    <div class="waveform-bar"></div>
+                                    <div class="waveform-bar"></div>
+                                    <div class="waveform-bar"></div>
+                                    <div class="waveform-bar"></div>
+                                </div>
+                                <p class="progress-text">Processing audio files...</p>
+                                <p class="progress-subtext">Converting to WAV format</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Files Grid -->
+                    <div class="files-grid-column">
+                        <div id="filesGrid" class="files-grid">
+                            <!-- Files will be populated here dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Audio Summary Section -->
+            <section id="summary-section" class="content-section">
+                <h2 class="section-title">Audio Summary</h2>
+                <div class="summary-container">
+                    <div id="summaryGrid" class="summary-grid">
+                        <div class="empty-state">
+                            <p>📁 No audio files uploaded yet</p>
+                            <p class="empty-subtext">Upload audio files to see summaries here</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Shared Messages Section -->
+            <section id="shared-section" class="content-section">
+                <h2 class="section-title">Shared Messages</h2>
+                <div class="summary-container">
+                    <div id="sharedGrid" class="summary-grid">
+                        <div class="empty-state">
+                            <p>📭 No shared messages yet</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Share Modal -->
+    <div id="shareModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-96 shadow-2xl">
+            <h2 class="text-xl font-bold mb-4 text-gray-800">Share Audio</h2>
+            <div class="mb-4">
+                <input type="text" id="share-user-search" class="w-full border p-2 rounded"
+                    placeholder="Search users...">
+            </div>
+            <div id="share-user-list" class="max-h-60 overflow-y-auto mb-4 border rounded bg-gray-50">
+                <!-- User List Populated via JS -->
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeShareModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                <button onclick="confirmShare()"
+                    class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Share</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+</body>
+
+</html>
